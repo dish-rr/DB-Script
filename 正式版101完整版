@@ -4623,7 +4623,8 @@ print("✅ 逃跑者 · DB 风格 UI 版 v17 已加载")
     ["非对称竞技"] = {
         {Name = "被遗弃｜群友提供@噬", Url = "https://raw.githubusercontent.com/ke9460394-dot/ugik/refs/heads/main/ainianniang.lua"},
         {Name = "致命猿猴", Url = "https://raw.githubusercontent.com/Anzzckc/Lethal-Ape-Beta/refs/heads/main/Lethal%20Ape%20Beta.lua"},
-        {Name = "暴力区", Code = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/lixxWW/ViolenceDistrict/refs/heads/main/ViolenceDistrict.lua"))()]]}
+        {Name = "暴力区", Code = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/lixxWW/ViolenceDistrict/refs/heads/main/ViolenceDistrict.lua"))()]]},
+        {Name = "躲避恶人｜天休制作", Url = "https://raw.githubusercontent.com/dish-rr/DB-Script/master/%E8%BA%B2%E9%81%BF%E6%81%B6%E4%BA%BA-%E5%A4%A9%E4%BC%91%E5%88%B6%E4%BD%9C.luau"}
     },
     ["塔防游戏"] = {
         {Name = "战斗砖块", Url = "https://rawscripts.net/raw/The-Battle-Bricks-auto-play-no-key-141463"}
