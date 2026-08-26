@@ -3394,7 +3394,7 @@ print("✅ DB FLIGHT V4 无限速度 / 1档双倍走速 / 拖动不误触版已�
         {Name = "凶手VS警长决斗", Code = [[loadstring(game:HttpGet("https://rawscripts.net/raw/Murderers-VS-Sheriffs-DUELS-mvsd-script-open-source-many-features-undetected-244205"))()]]}
     },
     ["角色扮演RPG"] = {
-        {Name = "俄亥俄州(缝合版)", Code = [====[
+        {Name = "天休缝合", Code = [====[
 -- ============================================================================
 --  俄亥俄州 单窗口缝合版 (tnine + XA) —— DB 风格内置 UI
 --  主框架: 内置 Fluent 兼容 UI 库 (DB 风格, 无外部依赖)
