@@ -7635,6 +7635,25 @@ task.spawn(function()
 		end)
 	end
 end)
+task.spawn(function()
+	-- 伪造鼠标移动输入, 刷新游戏自带 AntiAFK (PlayerScripts.Game.AntiAFK) 的 os.clock 计时器
+	-- 否则挂机 ≥1110s 会被 TeleportService:Teleport 强制重进游戏
+	local UIS = UserInputService
+	while true do
+		task.wait(45)
+		pcall(function()
+			firesignal(UIS.InputChanged, { UserInputType = Enum.UserInputType.MouseMovement })
+		end)
+	end
+end)
+pcall(function()
+	-- 兜底: 拦截 TeleportService:Teleport, 防止 AntiAFK fallback 重进
+	local TS = game:GetService("TeleportService")
+	local oldTeleport = TS.Teleport
+	if oldTeleport then
+		hookfunction(oldTeleport, function() return nil end)
+	end
+end)
 pcall(function()
 	local g = getgenv()
 	if g.tx_egg_queued then return end
@@ -7821,10 +7840,7 @@ local function findAllEggs()
 		end
 	end
 	if S.byPrice then
-		table.sort(out, function(a, b)
-			if a.rarity ~= b.rarity then return a.rarity < b.rarity end
-			return a.price > b.price
-		end)
+		table.sort(out, function(a, b) return a.price > b.price end)
 	else
 		table.sort(out, function(a, b) return a.rarity < b.rarity end)
 	end
@@ -7890,6 +7906,9 @@ local function stealLoop(dt)
 				needBackT = os.clock()
 				local st = carryEgg(e.uid)
 				if st == "success" or st == "already" then
+					skipUid = e.uid
+					skipT = os.clock()
+					eggCache = nil
 					task.wait(0.3)
 					stopAfterBack()
 					return
@@ -8725,7 +8744,6 @@ task.wait(0.2)
 applyBypass()
 if S.speedOn then startTpwalk() end
 Notify("偷一个蛋", "天休制作 · 加载成功")
-
             ]=====]
         }
     },
