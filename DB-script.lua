@@ -7500,7 +7500,1234 @@ end)
         {Name = "偷走一个蛋｜群友：搁浅(小号) 投稿", Url = "https://raw.githubusercontent.com/kaisenlmao/loader/refs/heads/main/chiyo.lua"},
         {Name = "踢一个幸运方块", Url = "https://raw.githubusercontent.com/fartez127-design/FARTEZHUB/refs/heads/main/FARTEZHUBXKickaLuckyBlock"},
         {Name = "偷一个蛋", Code = [[loadstring(game:HttpGet("https://solixhub.com/loader"))()]]},
-        {Name = "重型钓鱼(脚本不能用看群公告)", Code = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/linni-fish/HeavyFishing/main/Fishing.lua"))()]]}
+        {Name = "重型钓鱼(脚本不能用看群公告)", Code = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/linni-fish/HeavyFishing/main/Fishing.lua"))()]]},
+        {
+            Name = "偷一个蛋--天休制作",
+            Code = [=====[
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp = Players.LocalPlayer
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+pcall(function()
+	local pg = lp:WaitForChild("PlayerGui", 5)
+	if pg then
+		local old = pg:FindFirstChild("TX_Egg_Panel")
+		if old then old:Destroy() end
+	end
+end)
+
+local S = {
+	speedOn = false, speedMult = 50,
+	stealOn = false, hatchOn = false, collectOn = false,
+	espOn = false, showNames = true, showDist = true,
+	byPrice = false,
+	rarities = {},
+}
+
+local RarityZh = { "神圣", "永恒", "秘密", "宇宙", "神话", "传说", "史诗", "稀有", "罕见", "普通" }
+local RarityEn = { "Divine", "Eternal", "Secret", "Cosmic", "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common" }
+
+local H = game:GetService("HttpService")
+local CFG_FILE = "tianxiu_egg_cfg.txt"
+local function saveCfg()
+	pcall(function()
+		writefile(CFG_FILE, H:JSONEncode({
+			speedOn = S.speedOn,
+			speedMult = S.speedMult,
+			stealOn = S.stealOn,
+			byPrice = S.byPrice,
+			hatchOn = S.hatchOn,
+			collectOn = S.collectOn,
+			espOn = S.espOn,
+			showNames = S.showNames,
+			showDist = S.showDist,
+			rarities = S.rarities,
+		}))
+	end)
+end
+local function loadCfg()
+	pcall(function()
+		if not isfile(CFG_FILE) then return end
+		local d = H:JSONDecode(readfile(CFG_FILE))
+		if type(d) == "table" then
+			if type(d.speedOn) == "boolean" then S.speedOn = d.speedOn end
+			if type(d.speedMult) == "number" then S.speedMult = d.speedMult end
+			if type(d.stealOn) == "boolean" then S.stealOn = d.stealOn end
+			if type(d.byPrice) == "boolean" then S.byPrice = d.byPrice end
+			if type(d.hatchOn) == "boolean" then S.hatchOn = d.hatchOn end
+			if type(d.collectOn) == "boolean" then S.collectOn = d.collectOn end
+			if type(d.espOn) == "boolean" then S.espOn = d.espOn end
+			if type(d.showNames) == "boolean" then S.showNames = d.showNames end
+			if type(d.showDist) == "boolean" then S.showDist = d.showDist end
+			if type(d.rarities) == "table" then S.rarities = d.rarities end
+		end
+	end)
+end
+
+local EggState = nil
+pcall(function() EggState = require(ReplicatedStorage.Client.EggState) end)
+
+local function getChar() return lp.Character end
+local function getHRP()
+	local c = getChar()
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+local function getHum()
+	local c = getChar()
+	return c and c:FindFirstChildOfClass("Humanoid")
+end
+
+local state = nil
+local function findAC()
+	if state then return true end
+	local gc = getgc()
+	for i, fn in ipairs(gc) do
+		if type(fn) == "function" then
+			local ok, inf = pcall(getinfo, fn)
+			local src = ok and inf and tostring(inf.source) or ""
+			if src:find("ContentCatalog", 1, true) then
+				local ok2, consts = pcall(getconstants, fn)
+				if ok2 and consts then
+					local hasWS = false
+					for _, c in ipairs(consts) do
+						if type(c) == "string" and c == "WalkSpeed" then hasWS = true break end
+					end
+					if hasWS then
+						local ok3, uv = pcall(getupvalues, fn)
+						if ok3 and uv and type(uv[1]) == "table" and uv[1].ThreatLevel then
+							state = uv[1]
+							return true
+						end
+					end
+				end
+			end
+		end
+	end
+	return false
+end
+local function applyBypass()
+	if not findAC() then return false end
+	pcall(function()
+		setreadonly(state, false)
+		state.ThreatLevel = "low"
+		state.Evidence = {}
+		state.Allowances = {}
+		state.ContinuousAllowances = {}
+		state.LastCorrectionAt = math.huge
+	end)
+	return true
+end
+pcall(function()
+	for _, conn in ipairs(getconnections(lp.Idled)) do
+		pcall(function() conn:Disable() end)
+	end
+end)
+task.spawn(function()
+	while true do
+		task.wait(30)
+		pcall(function()
+			require(ReplicatedStorage.Shared.Remotes).Telemetry.SubmitIdleState:FireServer(false)
+		end)
+	end
+end)
+pcall(function()
+	local g = getgenv()
+	if g.tx_egg_queued then return end
+	local qt = queue_on_teleport or queueonteleport
+	if not qt then return end
+	g.tx_egg_queued = true
+	pcall(function()
+		local src = readfile("tianxiu_egg.lua")
+		if src and #src > 50 then
+			qt("loadstring(readfile('tianxiu_egg.lua'))()")
+		end
+	end)
+end)
+RunService.Heartbeat:Connect(function()
+	applyBypass()
+	local hum = getHum()
+	if hum then
+		if hum.Health < hum.MaxHealth then
+			hum.Health = hum.MaxHealth
+		end
+	end
+end)
+local function getInputMove()
+	local cam = workspace.CurrentCamera
+	if not cam then return Vector3.new() end
+	local look = cam.CFrame.LookVector
+	local right = cam.CFrame.RightVector
+	local f = 0
+	local r = 0
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then f = f + 1 end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then f = f - 1 end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then r = r + 1 end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then r = r - 1 end
+	local mv = Vector3.new(look.X, 0, look.Z).Unit * f + Vector3.new(right.X, 0, right.Z).Unit * r
+	if mv.Magnitude > 1 then mv = mv.Unit end
+	return mv
+end
+local moveConn = nil
+local function startTpwalk()
+	if moveConn then return end
+	moveConn = RunService.Heartbeat:Connect(function(dt)
+		if not S.speedOn then return end
+		local char = getChar()
+		if not char then return end
+		local mv = getInputMove()
+		if mv.Magnitude > 0 then
+			char:TranslateBy(mv * math.min(S.speedMult * 10, 1000) * dt)
+		end
+	end)
+end
+local function noclipChar(char, v)
+	if not char then return end
+	for _, p in ipairs(char:GetDescendants()) do
+		if p:IsA("BasePart") then p.CanCollide = v end
+	end
+end
+local function getBasePos()
+	local sl = workspace:FindFirstChildOfClass("SpawnLocation")
+	if sl then return sl.Position end
+	return Vector3.new(500, 70, -365)
+end
+local moving = false
+local moveStop = nil
+local function stopMove()
+	moving = false
+	if moveStop then pcall(moveStop) moveStop = nil end
+end
+local function walkTo(pos, onArrive, arriveDist)
+	if moving then return end
+	local char = getChar()
+	local hrp = getHRP()
+	if not (char and hrp) then return end
+	local thresh = arriveDist or 2.5
+	moving = true
+	local conn
+	local lastPos = hrp.Position
+	local stuckT = 0
+	local noclip = false
+	local clipT = 0
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if not moving then
+			conn:Disconnect()
+			return
+		end
+		if not hrp.Parent then
+			hrp = getHRP()
+			char = getChar()
+			if not (char and hrp) then
+				conn:Disconnect()
+				moving = false
+				return
+			end
+			lastPos = hrp.Position
+			stuckT = 0
+			return
+		end
+		local dir = pos - hrp.Position
+		local dist = dir.Magnitude
+		if dist < thresh then
+			conn:Disconnect()
+			moving = false
+			if noclip then noclipChar(char, true) end
+			if onArrive then pcall(onArrive) end
+			return
+		end
+		local moved = (hrp.Position - lastPos).Magnitude
+		if moved < 0.3 then
+			stuckT = stuckT + dt
+			if stuckT > 1 and not noclip then
+				stuckT = 0
+				noclip = true
+				clipT = 0
+				noclipChar(char, false)
+			end
+		else
+			stuckT = 0
+		end
+		lastPos = hrp.Position
+		local unit = dir / dist
+		if noclip then
+			clipT = clipT + dt
+			char:TranslateBy(unit * 60 * dt)
+			if clipT > 0.5 then
+				noclip = false
+				noclipChar(char, true)
+			end
+		else
+			local spd = math.min(S.speedMult * 10, 1000)
+			if dist < 8 then spd = math.min(spd, 60) end
+			if dist < 20 then spd = math.min(spd, 150) end
+			char:TranslateBy(unit * spd * dt)
+		end
+	end)
+	moveStop = function()
+		if conn then pcall(function() conn:Disconnect() end) end
+		if noclip then pcall(function() noclipChar(char, true) end) end
+		moving = false
+	end
+end
+local Assets = nil
+pcall(function() Assets = require(ReplicatedStorage.Data.Assets) end)
+local AssetItems = nil
+pcall(function() AssetItems = require(ReplicatedStorage.Shared.Util.AssetItems) end)
+local RarityNumToZh = { [1] = 10, [2] = 9, [3] = 8, [4] = 7, [5] = 6, [6] = 5, [7] = 4, [8] = 3, [9] = 2, [10] = 1, [11] = 1 }
+local function eggRarityNum(cat)
+	if not Assets or not Assets.Directory then return 10 end
+	local cfg = Assets.Directory[cat]
+	local rar = cfg and cfg.Rarity
+	local num = rar and rar.RarityNumber or 1
+	return RarityNumToZh[num] or 10
+end
+local function eggPrice(r)
+	if not AssetItems or not AssetItems.SalePrice then return 0 end
+	local ok, price = pcall(function()
+		return AssetItems.SalePrice({
+			Category = r.AssetCategory,
+			Scale = r.AssetScale,
+			EyeColor = r.AssetEyeColor,
+			ColorSeed = r.AssetColorSeed,
+			ColorIndex = r.AssetColorIndex,
+			Mutations = r.Mutations or {},
+			BaseMutation = r.BaseMutation,
+		})
+	end)
+	return ok and price or 0
+end
+local eggCache = nil
+local eggCacheT = 0
+local function findAllEggs()
+	local now = os.clock()
+	if eggCache and now - eggCacheT < 1 then return eggCache end
+	local out = {}
+	local field = nil
+	if EggState then pcall(function() field = EggState.SyncFieldEggs() end) end
+	if not field then return out end
+	for _, r in ipairs(field.Records or {}) do
+		if r.State == "Slot" and r.Uid and r.BottomCFrame then
+			local uid = tostring(r.Uid)
+			if not uid:find("FirstAreaEgg") then
+				local name = tostring(r.AssetCategory or "")
+				if name == "" then name = "蛋" end
+				table.insert(out, { uid = uid, pos = r.BottomCFrame.Position, rarity = eggRarityNum(name), name = name, price = eggPrice(r) })
+			end
+		end
+	end
+	if S.byPrice then
+		table.sort(out, function(a, b)
+			if a.rarity ~= b.rarity then return a.rarity < b.rarity end
+			return a.price > b.price
+		end)
+	else
+		table.sort(out, function(a, b) return a.rarity < b.rarity end)
+	end
+	eggCache = out
+	eggCacheT = now
+	return out
+end
+local function wantRarity(rank)
+	local any = false
+	for _, zh in ipairs(RarityZh) do
+		if S.rarities[zh] then any = true break end
+	end
+	if not any then return true end
+	for i, zh in ipairs(RarityZh) do
+		if i == rank and S.rarities[zh] then return true end
+	end
+	return false
+end
+local stealTick = 0
+local skipUid = nil
+local skipT = 0
+local needBack = false
+local needBackT = 0
+local firstGo = false
+local function carryEgg(uid)
+	if not EggState then return "error" end
+	local ok, res, msg = pcall(function() return EggState.CarryFieldEgg(uid) end)
+	if not ok then return "error" end
+	if res == true then return "success" end
+	if type(msg) == "string" and msg:find("Already", 1, true) then return "already" end
+	return "fail"
+end
+local function stopAfterBack()
+	walkTo(getBasePos(), function()
+		stopMove()
+		needBack = false
+	end)
+end
+local function stealLoop(dt)
+	if not S.stealOn then return end
+	if needBack then
+		if os.clock() - needBackT > 120 then needBack = false end
+		return
+	end
+	if moving then return end
+	if firstGo then
+		firstGo = false
+		walkTo(getBasePos(), function() end)
+		return
+	end
+	stealTick = stealTick + dt
+	if stealTick < 0.6 then return end
+	stealTick = 0
+	if skipUid and os.clock() - skipT > 30 then skipUid = nil end
+	local eggs = findAllEggs()
+	for _, e in ipairs(eggs) do
+		if not S.stealOn then break end
+		if e.uid ~= skipUid and wantRarity(e.rarity) then
+			local attempts = 0
+			local function tryCarry()
+				attempts = attempts + 1
+				needBack = true
+				needBackT = os.clock()
+				local st = carryEgg(e.uid)
+				if st == "success" or st == "already" then
+					task.wait(0.3)
+					stopAfterBack()
+					return
+				end
+				needBack = false
+				if attempts >= 4 then
+					skipUid = e.uid
+					skipT = os.clock()
+					needBack = true
+					needBackT = os.clock()
+					task.wait(0.2)
+					walkTo(getBasePos(), function()
+						needBack = false
+						stopMove()
+					end)
+					return
+				end
+				task.wait(0.2)
+				walkTo(e.pos, tryCarry, 2.5 - attempts * 0.6)
+			end
+			walkTo(e.pos, tryCarry)
+			return
+		end
+	end
+end
+local hatchTick = 0
+local function hatchLoop(dt)
+	if not S.hatchOn then return end
+	hatchTick = hatchTick + dt
+	if hatchTick < 2 then return end
+	hatchTick = 0
+	if not EggState then return end
+	pcall(function() EggState.SyncOwnedEggs() end)
+	local rows = pcall(function() return EggState.ReadOwnedEggs() end)
+	if type(rows) == "table" then
+		for _, row in ipairs(rows) do
+			for _, rec in ipairs(row.Records or {}) do
+				if rec.Uid and rec.State == "Dropped" then
+					pcall(function() EggState.BeginHatch(rec.Uid) end)
+					task.wait(0.3)
+					pcall(function() EggState.FinishHatch(rec.Uid) end)
+					task.wait(0.3)
+				end
+			end
+		end
+	end
+end
+local collectTick = 0
+local function collectLoop(dt)
+	if not S.collectOn then return end
+	collectTick = collectTick + dt
+	if collectTick < 30 then return end
+	collectTick = 0
+	pcall(function()
+		local rem = require(ReplicatedStorage.Shared.Remotes)
+		rem.AwayEarnings.PendingCheck:InvokeServer()
+		task.wait(0.2)
+		rem.AwayEarnings.AskCollect:InvokeServer()
+	end)
+end
+
+local function AddCorner(obj, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 8)
+	c.Parent = obj
+	return c
+end
+local RAINBOW_FLOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 82, 126)),
+	ColorSequenceKeypoint.new(0.14, Color3.fromRGB(255, 178, 78)),
+	ColorSequenceKeypoint.new(0.28, Color3.fromRGB(255, 246, 112)),
+	ColorSequenceKeypoint.new(0.43, Color3.fromRGB(102, 255, 176)),
+	ColorSequenceKeypoint.new(0.58, Color3.fromRGB(86, 230, 255)),
+	ColorSequenceKeypoint.new(0.72, Color3.fromRGB(126, 138, 255)),
+	ColorSequenceKeypoint.new(0.86, Color3.fromRGB(236, 92, 255)),
+	ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 82, 126))
+})
+local function StartRainbowFlow(parent, duration, transparency)
+	local grad = Instance.new("UIGradient")
+	grad.Name = "RainbowFlow"
+	grad.Color = RAINBOW_FLOW
+	grad.Transparency = transparency or NumberSequence.new(0)
+	grad.Rotation = -180
+	grad.Parent = parent
+	local tw = TweenService:Create(grad, TweenInfo.new(duration or 2.0, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, false, 0), { Rotation = 180 })
+	tw:Play()
+	return grad, tw
+end
+local function AddRainbowBorder(obj, thickness, transparency, speed)
+	local stroke = Instance.new("UIStroke")
+	stroke.Name = "DB_RainbowMain"
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Thickness = thickness or 0.9
+	stroke.Color = Color3.new(1, 1, 1)
+	stroke.Transparency = transparency or 0.01
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = obj
+	local grad = StartRainbowFlow(stroke, speed or 1.95)
+	return stroke, grad
+end
+local function AddBorder(obj, thickness, transparency)
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Thickness = thickness or 0.85
+	stroke.Color = Color3.fromRGB(255, 255, 255)
+	stroke.Transparency = transparency or 0.52
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = obj
+	return stroke
+end
+local function StyleButton(btn, radius)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	btn.BackgroundTransparency = 0.84
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.Font = Enum.Font.GothamBlack
+	btn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	btn.TextStrokeTransparency = 0.62
+	AddCorner(btn, radius or 9)
+	AddBorder(btn, 0.85, 0.52)
+	local scale = Instance.new("UIScale")
+	scale.Name = "DB_Scale"
+	scale.Scale = 1
+	scale.Parent = btn
+	btn.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		TweenService:Create(scale, TweenInfo.new(0.055, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.965 }):Play()
+	end)
+	btn.InputEnded:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		TweenService:Create(scale, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end)
+end
+local function CreateToggleRow(parent, title, getValue, onChange)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -12, 0, 36)
+	row.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	row.BackgroundTransparency = 0.88
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	AddCorner(row, 8)
+	AddBorder(row, 0.7, 0.6)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -66, 1, 0)
+	label.Position = UDim2.fromOffset(12, 0)
+	label.BackgroundTransparency = 1
+	label.Text = title
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextSize = 12
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Parent = row
+	local enabled = getValue and getValue() or false
+	local switch = Instance.new("TextButton")
+	switch.AnchorPoint = Vector2.new(1, 0.5)
+	switch.Position = UDim2.new(1, -12, 0.5, 0)
+	switch.Size = UDim2.fromOffset(44, 22)
+	switch.BackgroundColor3 = enabled and Color3.fromRGB(205, 210, 220) or Color3.fromRGB(62, 65, 72)
+	switch.BackgroundTransparency = 0.12
+	switch.BorderSizePixel = 0
+	switch.Text = ""
+	switch.AutoButtonColor = false
+	switch.Parent = row
+	AddCorner(switch, 999)
+	local knob = Instance.new("Frame")
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Position = enabled and UDim2.new(1, -11, 0.5, 0) or UDim2.new(0, 11, 0.5, 0)
+	knob.Size = UDim2.fromOffset(17, 17)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	knob.BackgroundTransparency = 0
+	knob.BorderSizePixel = 0
+	knob.Parent = switch
+	AddCorner(knob, 999)
+	switch.Activated:Connect(function()
+		enabled = not enabled
+		if onChange then pcall(onChange, enabled) end
+		TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = enabled and UDim2.new(1, -11, 0.5, 0) or UDim2.new(0, 11, 0.5, 0) }):Play()
+		TweenService:Create(switch, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = enabled and Color3.fromRGB(205, 210, 220) or Color3.fromRGB(62, 65, 72) }):Play()
+	end)
+	return row
+end
+local function CreateButtonRow(parent, title, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -12, 0, 34)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	btn.BackgroundTransparency = 0.88
+	btn.BorderSizePixel = 0
+	btn.Text = title
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextSize = 12
+	btn.Font = Enum.Font.GothamBlack
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.TextTruncate = Enum.TextTruncate.AtEnd
+	btn.AutoButtonColor = false
+	btn.Parent = parent
+	StyleButton(btn, 8)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = btn
+	btn.Activated:Connect(function()
+		if onClick then pcall(onClick) end
+	end)
+	return btn
+end
+local function CreateSliderRow(parent, title, min, max, def, step, onChange)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -12, 0, 62)
+	row.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	row.BackgroundTransparency = 0.88
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	AddCorner(row, 8)
+	AddBorder(row, 0.7, 0.6)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -20, 0, 18)
+	label.Position = UDim2.fromOffset(12, 3)
+	label.BackgroundTransparency = 1
+	label.Text = title .. "：" .. tostring(def)
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextSize = 11
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = row
+	local track = Instance.new("Frame")
+	track.Position = UDim2.new(0, 14, 0, 38)
+	track.Size = UDim2.new(1, -28, 0, 5)
+	track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	track.BackgroundTransparency = 0.75
+	track.BorderSizePixel = 0
+	track.Active = true
+	track.Parent = row
+	AddCorner(track, 999)
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new(0, 0, 1, 0)
+	fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	fill.BackgroundTransparency = 0.02
+	fill.BorderSizePixel = 0
+	fill.Parent = track
+	AddCorner(fill, 999)
+	local knob = Instance.new("Frame")
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Position = UDim2.new(0, 0, 0.5, 0)
+	knob.Size = UDim2.fromOffset(14, 14)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	knob.BackgroundTransparency = 0
+	knob.BorderSizePixel = 0
+	knob.Active = false
+	knob.Parent = track
+	AddCorner(knob, 999)
+	local dragging = false
+	local dragInput = nil
+	local function ApplyRatio(ratio, fireCallback)
+		ratio = math.max(0, math.min(1, ratio))
+		local snapped = math.max(min, math.min(max, math.floor((min + (max - min) * ratio) / step + 0.5) * step))
+		local r2 = (snapped - min) / (max - min)
+		fill.Size = UDim2.new(r2, 0, 1, 0)
+		knob.Position = UDim2.new(r2, 0, 0.5, 0)
+		label.Text = title .. "：" .. tostring(snapped)
+		if fireCallback and onChange then pcall(onChange, snapped) end
+	end
+	local function ApplyFromX(x)
+		if not track.Parent then return end
+		local width = math.max(1, track.AbsoluteSize.X)
+		ApplyRatio((x - track.AbsolutePosition.X) / width, true)
+	end
+	ApplyRatio((def - min) / (max - min), false)
+	track.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		dragging = true
+		dragInput = input
+		ApplyFromX(input.Position.X)
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging or not track.Parent then return end
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if input ~= dragInput then return end
+		elseif input.UserInputType ~= Enum.UserInputType.MouseMovement then
+			return
+		end
+		ApplyFromX(input.Position.X)
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if input ~= dragInput then return end
+		elseif input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			return
+		end
+		dragging = false
+		dragInput = nil
+	end)
+	return row
+end
+local function Notify(title, text)
+	pcall(function()
+		local pg = lp:WaitForChild("PlayerGui")
+		local old = pg:FindFirstChild("TX_EggNotify")
+		if old then old:Destroy() end
+		local frame = Instance.new("Frame")
+		frame.Name = "TX_EggNotify"
+		frame.AnchorPoint = Vector2.new(1, 1)
+		frame.Position = UDim2.new(1, -16, 1, -16)
+		frame.Size = UDim2.fromOffset(280, 54)
+		frame.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.ZIndex = 5000
+		frame.Parent = pg
+		AddCorner(frame, 12)
+		AddBorder(frame, 1, 0.35)
+		local t1 = Instance.new("TextLabel")
+		t1.Size = UDim2.new(1, -20, 0, 18)
+		t1.Position = UDim2.fromOffset(10, 5)
+		t1.BackgroundTransparency = 1
+		t1.Text = title
+		t1.TextColor3 = Color3.fromRGB(255, 255, 255)
+		t1.TextSize = 12
+		t1.Font = Enum.Font.GothamBlack
+		t1.TextXAlignment = Enum.TextXAlignment.Left
+		t1.Parent = frame
+		local t2 = Instance.new("TextLabel")
+		t2.Size = UDim2.new(1, -20, 0, 22)
+		t2.Position = UDim2.fromOffset(10, 25)
+		t2.BackgroundTransparency = 1
+		t2.Text = text
+		t2.TextColor3 = Color3.fromRGB(200, 210, 230)
+		t2.TextSize = 10
+		t2.Font = Enum.Font.GothamMedium
+		t2.TextXAlignment = Enum.TextXAlignment.Left
+		t2.Parent = frame
+		task.delay(3, function()
+			if frame and frame.Parent then
+				TweenService:Create(frame, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+				task.delay(0.35, function() if frame and frame.Parent then frame:Destroy() end end)
+			end
+		end)
+	end)
+end
+
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "TX_Egg_Panel"
+MainGui.ResetOnSpawn = false
+MainGui.IgnoreGuiInset = true
+MainGui.DisplayOrder = 999
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local pg = lp:WaitForChild("PlayerGui", 10)
+MainGui.Parent = pg
+
+local IntroGui = Instance.new("Frame")
+IntroGui.Name = "TX_Intro"
+IntroGui.Size = UDim2.fromScale(1, 1)
+IntroGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+IntroGui.BackgroundTransparency = 1
+IntroGui.BorderSizePixel = 0
+IntroGui.ZIndex = 10000
+IntroGui.Active = true
+IntroGui.ClipsDescendants = true
+IntroGui.Parent = MainGui
+local IntroTitle = Instance.new("TextLabel")
+IntroTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+IntroTitle.Position = UDim2.fromScale(0.5, 0.42)
+IntroTitle.Size = UDim2.new(0, 320, 0, 64)
+IntroTitle.BackgroundTransparency = 1
+IntroTitle.Text = "偷一个蛋"
+IntroTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+IntroTitle.TextTransparency = 1
+IntroTitle.TextSize = 48
+IntroTitle.Font = Enum.Font.GothamBlack
+IntroTitle.ZIndex = 10002
+IntroTitle.Parent = IntroGui
+AddBorder(IntroTitle, 1.4, 0.15)
+StartRainbowFlow(IntroTitle, 2.2, NumberSequence.new(0))
+local IntroSub = Instance.new("TextLabel")
+IntroSub.AnchorPoint = Vector2.new(0.5, 1)
+IntroSub.Position = UDim2.new(0.5, 0, 0.72, 0)
+IntroSub.Size = UDim2.new(0, 300, 0, 26)
+IntroSub.BackgroundTransparency = 1
+IntroSub.Text = "天休制作 · 欢迎：" .. lp.Name
+IntroSub.TextColor3 = Color3.fromRGB(255, 255, 255)
+IntroSub.TextTransparency = 1
+IntroSub.TextSize = 15
+IntroSub.Font = Enum.Font.GothamMedium
+IntroSub.ZIndex = 10002
+IntroSub.Parent = IntroGui
+TweenService:Create(IntroGui, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.25 }):Play()
+task.wait(0.15)
+TweenService:Create(IntroTitle, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+TweenService:Create(IntroSub, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+task.wait(1.7)
+TweenService:Create(IntroGui, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { BackgroundTransparency = 1 }):Play()
+TweenService:Create(IntroTitle, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
+TweenService:Create(IntroSub, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
+task.wait(0.5)
+if IntroGui.Parent then IntroGui:Destroy() end
+
+local PANEL_W, PANEL_H = 440, 420
+local Panel = Instance.new("Frame")
+Panel.Name = "Panel"
+Panel.AnchorPoint = Vector2.new(0.5, 0.5)
+Panel.Position = UDim2.fromScale(0.5, 0.5)
+Panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+Panel.BackgroundTransparency = 1
+Panel.BorderSizePixel = 0
+Panel.Active = true
+Panel.Parent = MainGui
+local Body = Instance.new("Frame")
+Body.Name = "Body"
+Body.Position = UDim2.fromOffset(2, 2)
+Body.Size = UDim2.new(1, -4, 1, -4)
+Body.BackgroundColor3 = Color3.fromRGB(6, 8, 12)
+Body.BackgroundTransparency = 0.12
+Body.BorderSizePixel = 0
+Body.ClipsDescendants = true
+Body.Parent = Panel
+AddCorner(Body, 14)
+AddRainbowBorder(Body, 1.5, 0.02, 2.6)
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundTransparency = 1
+Header.Active = true
+Header.Parent = Body
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.fromOffset(12, 3)
+TitleLabel.Size = UDim2.new(0, 130, 0, 24)
+TitleLabel.Text = "偷一个蛋"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 15
+TitleLabel.Font = Enum.Font.GothamBlack
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Header
+StartRainbowFlow(TitleLabel, 4.0, NumberSequence.new(0))
+local SubLabel = Instance.new("TextLabel")
+SubLabel.BackgroundTransparency = 1
+SubLabel.Position = UDim2.fromOffset(150, 8)
+SubLabel.Size = UDim2.new(1, -240, 0, 14)
+SubLabel.Text = "天休制作"
+SubLabel.TextColor3 = Color3.fromRGB(190, 200, 215)
+SubLabel.TextSize = 9
+SubLabel.Font = Enum.Font.GothamMedium
+SubLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubLabel.Parent = Header
+local DragArea = Instance.new("TextButton")
+DragArea.Name = "DragArea"
+DragArea.Size = UDim2.new(1, -58, 1, 0)
+DragArea.BackgroundTransparency = 1
+DragArea.BorderSizePixel = 0
+DragArea.Text = ""
+DragArea.AutoButtonColor = false
+DragArea.Active = true
+DragArea.Parent = Header
+local panelDrag = { active = false, start = nil, pos = nil, touch = nil }
+local function StartPanelDrag(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	panelDrag.active = true
+	panelDrag.start = input.Position
+	panelDrag.pos = Panel.Position
+	if input.UserInputType == Enum.UserInputType.Touch then panelDrag.touch = input end
+end
+DragArea.InputBegan:Connect(StartPanelDrag)
+Header.InputBegan:Connect(StartPanelDrag)
+Panel.InputBegan:Connect(StartPanelDrag)
+UserInputService.InputChanged:Connect(function(input)
+	if not panelDrag.active then return end
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+	elseif input.UserInputType == Enum.UserInputType.Touch and input == panelDrag.touch then
+	else
+		return
+	end
+	local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+	local maxX = vp.X - PANEL_W / 2 - 30
+	local maxY = vp.Y - PANEL_H / 2 - 30
+	local minX = PANEL_W / 2 - vp.X + 30
+	local minY = PANEL_H / 2 - vp.Y + 30
+	local dx = math.max(minX, math.min(maxX, panelDrag.pos.X.Offset + (input.Position.X - panelDrag.start.X)))
+	local dy = math.max(minY, math.min(maxY, panelDrag.pos.Y.Offset + (input.Position.Y - panelDrag.start.Y)))
+	Panel.Position = UDim2.new(0.5, dx, 0.5, dy)
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	panelDrag.active = false
+	panelDrag.touch = nil
+end)
+local MiniBtn = Instance.new("TextButton")
+MiniBtn.Name = "Mini"
+MiniBtn.Position = UDim2.new(1, -56, 0, 2)
+MiniBtn.Size = UDim2.fromOffset(26, 26)
+MiniBtn.BackgroundTransparency = 1
+MiniBtn.BorderSizePixel = 0
+MiniBtn.Text = "−"
+MiniBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniBtn.TextSize = 20
+MiniBtn.Font = Enum.Font.GothamMedium
+MiniBtn.AutoButtonColor = false
+MiniBtn.Parent = Header
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "Close"
+CloseBtn.Position = UDim2.new(1, -28, 0, 2)
+CloseBtn.Size = UDim2.fromOffset(26, 26)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "×"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.AutoButtonColor = false
+CloseBtn.Parent = Header
+local Divider = Instance.new("Frame")
+Divider.Position = UDim2.new(0, 0, 0, 30)
+Divider.Size = UDim2.new(1, 0, 0, 1)
+Divider.BackgroundColor3 = Color3.fromRGB(150, 205, 240)
+Divider.BackgroundTransparency = 0.72
+Divider.BorderSizePixel = 0
+Divider.Parent = Body
+local NAV_W = 112
+local NavRail = Instance.new("Frame")
+NavRail.Name = "NavRail"
+NavRail.Position = UDim2.fromOffset(0, 31)
+NavRail.Size = UDim2.new(0, NAV_W, 1, -31)
+NavRail.BackgroundTransparency = 1
+NavRail.Parent = Body
+local ContentHost = Instance.new("Frame")
+ContentHost.Name = "ContentHost"
+ContentHost.Position = UDim2.new(0, NAV_W + 1, 0, 31)
+ContentHost.Size = UDim2.new(1, -(NAV_W + 1), 1, -31)
+ContentHost.BackgroundTransparency = 1
+ContentHost.ClipsDescendants = true
+ContentHost.Parent = Body
+local ContentScroll = Instance.new("ScrollingFrame")
+ContentScroll.Size = UDim2.new(1, -10, 1, -8)
+ContentScroll.Position = UDim2.fromOffset(5, 4)
+ContentScroll.BackgroundTransparency = 1
+ContentScroll.BorderSizePixel = 0
+ContentScroll.ScrollBarThickness = 2
+ContentScroll.ScrollBarImageColor3 = Color3.fromRGB(205, 205, 210)
+ContentScroll.ScrollBarImageTransparency = 0.5
+ContentScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ContentScroll.CanvasSize = UDim2.new()
+ContentScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+ContentScroll.Active = true
+ContentScroll.ScrollingEnabled = true
+ContentScroll.Parent = ContentHost
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Padding = UDim.new(0, 5)
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Parent = ContentScroll
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.Padding = UDim.new(0, 5)
+NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NavLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+NavLayout.Parent = NavRail
+local NavPad = Instance.new("UIPadding")
+NavPad.PaddingTop = UDim.new(0, 5)
+NavPad.PaddingLeft = UDim.new(0, 4)
+NavPad.PaddingRight = UDim.new(0, 4)
+NavPad.Parent = NavRail
+local currentCategory = "移动"
+local navButtons = {}
+local function RenderCategory(cat)
+	for _, child in ipairs(ContentScroll:GetChildren()) do
+		if child:IsA("GuiObject") and child ~= ContentLayout then
+			child:Destroy()
+		end
+	end
+	ContentScroll.CanvasPosition = Vector2.new(0, 0)
+	if cat == "移动" then
+		CreateToggleRow(ContentScroll, "速度更改(tpwalk)", function() return S.speedOn end, function(v)
+			S.speedOn = v
+			saveCfg()
+			if v then startTpwalk() end
+		end)
+		CreateSliderRow(ContentScroll, "速度倍数", 1, 100, S.speedMult, 1, function(v) S.speedMult = v saveCfg() end)
+		CreateButtonRow(ContentScroll, "反作弊绕过(常开)", function()
+			applyBypass()
+			Notify("偷一个蛋", "反作弊绕过已开启")
+		end)
+	elseif cat == "偷蛋" then
+		CreateToggleRow(ContentScroll, "自动偷蛋", function() return S.stealOn end, function(v)
+			S.stealOn = v
+			saveCfg()
+			if v then
+				firstGo = true
+			else
+				stopMove()
+			end
+		end)
+		CreateButtonRow(ContentScroll, "回基地", function()
+			walkTo(getBasePos(), function() stopMove() end)
+		end)
+		CreateButtonRow(ContentScroll, "扫描全场蛋", function()
+			local n = #findAllEggs()
+			Notify("偷一个蛋", "找到 " .. n .. " 个蛋")
+		end)
+		CreateToggleRow(ContentScroll, "自动孵化", function() return S.hatchOn end, function(v) S.hatchOn = v saveCfg() end)
+		CreateToggleRow(ContentScroll, "按价格偷蛋(贵的先偷)", function() return S.byPrice end, function(v) S.byPrice = v saveCfg() end)
+		local rarityHint = Instance.new("TextLabel")
+		rarityHint.Name = "RarityHint"
+		rarityHint.Size = UDim2.new(1, -12, 0, 22)
+		rarityHint.BackgroundTransparency = 1
+		rarityHint.Text = "点下面的稀有度加入偷取列表"
+		rarityHint.TextColor3 = Color3.fromRGB(255, 205, 120)
+		rarityHint.TextSize = 10
+		rarityHint.Font = Enum.Font.GothamMedium
+		rarityHint.TextXAlignment = Enum.TextXAlignment.Left
+		rarityHint.Parent = ContentScroll
+		for i, zh in ipairs(RarityZh) do
+			CreateToggleRow(ContentScroll, zh, function() return S.rarities[zh] or false end, function(v)
+				S.rarities[zh] = v
+				saveCfg()
+			end)
+		end
+	elseif cat == "挂机" then
+		CreateToggleRow(ContentScroll, "自动领离线收益", function() return S.collectOn end, function(v) S.collectOn = v saveCfg() end)
+		CreateButtonRow(ContentScroll, "立即领离线收益", function()
+			pcall(function()
+				local rem = require(ReplicatedStorage.Shared.Remotes)
+				rem.AwayEarnings.PendingCheck:InvokeServer()
+				task.wait(0.2)
+				rem.AwayEarnings.AskCollect:InvokeServer()
+			end)
+			Notify("偷一个蛋", "离线收益已领取")
+		end)
+		CreateButtonRow(ContentScroll, "一键兑换全部", function()
+			pcall(function()
+				require(ReplicatedStorage.Shared.Remotes).Codex.AskRedeemAll:InvokeServer()
+			end)
+			Notify("偷一个蛋", "兑换已全部领取")
+		end)
+	elseif cat == "视觉" then
+		CreateToggleRow(ContentScroll, "蛋透视", function() return S.espOn end, function(v) S.espOn = v saveCfg() end)
+		CreateToggleRow(ContentScroll, "显示名字", function() return S.showNames end, function(v) S.showNames = v saveCfg() end)
+		CreateToggleRow(ContentScroll, "显示距离", function() return S.showDist end, function(v) S.showDist = v saveCfg() end)
+	end
+end
+local categories = { "移动", "偷蛋", "挂机", "视觉" }
+for i, cat in ipairs(categories) do
+	local btn = Instance.new("TextButton")
+	btn.Name = "Nav_" .. cat
+	btn.Size = UDim2.new(1, -8, 0, 34)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	btn.BackgroundTransparency = 0.86
+	btn.BorderSizePixel = 0
+	btn.Text = cat
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextSize = 13
+	btn.Font = Enum.Font.GothamBlack
+	btn.TextXAlignment = Enum.TextXAlignment.Center
+	btn.AutoButtonColor = false
+	btn.LayoutOrder = i
+	btn.Parent = NavRail
+	StyleButton(btn, 8)
+	btn.Activated:Connect(function()
+		currentCategory = cat
+		RenderCategory(cat)
+		for _, b in ipairs(navButtons) do
+			b.BackgroundTransparency = 0.88
+			b.TextColor3 = Color3.fromRGB(255, 255, 255)
+		end
+		btn.BackgroundTransparency = 0.68
+		btn.TextColor3 = Color3.fromRGB(190, 235, 255)
+	end)
+	table.insert(navButtons, btn)
+end
+local Floating = Instance.new("TextButton")
+Floating.Name = "TX_Floating"
+Floating.AnchorPoint = Vector2.new(0.5, 0.5)
+Floating.Position = UDim2.new(1, -70, 0.5, 0)
+Floating.Size = UDim2.fromOffset(58, 34)
+Floating.BackgroundColor3 = Color3.fromRGB(6, 9, 13)
+Floating.BackgroundTransparency = 0.1
+Floating.BorderSizePixel = 0
+Floating.Text = "偷蛋"
+Floating.TextColor3 = Color3.fromRGB(255, 255, 255)
+Floating.TextSize = 12
+Floating.Font = Enum.Font.GothamBlack
+Floating.Visible = false
+Floating.ZIndex = 200
+Floating.Parent = MainGui
+AddCorner(Floating, 999)
+AddRainbowBorder(Floating, 1.4, 0.02, 2.8)
+local floatDrag = { active = false, start = nil, pos = nil, touch = nil, moved = false, suppressUntil = 0 }
+Floating.InputBegan:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	floatDrag.active = true
+	floatDrag.start = input.Position
+	floatDrag.pos = Floating.Position
+	floatDrag.moved = false
+	if input.UserInputType == Enum.UserInputType.Touch then floatDrag.touch = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if not floatDrag.active then return end
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+	elseif input.UserInputType == Enum.UserInputType.Touch and input == floatDrag.touch then
+	else
+		return
+	end
+	local delta = input.Position - floatDrag.start
+	if delta.Magnitude >= 7 then floatDrag.moved = true end
+	Floating.Position = UDim2.new(floatDrag.pos.X.Scale, floatDrag.pos.X.Offset + delta.X, floatDrag.pos.Y.Scale, floatDrag.pos.Y.Offset + delta.Y)
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+	if floatDrag.active and floatDrag.moved then
+		floatDrag.suppressUntil = os.clock() + 0.3
+	end
+	floatDrag.active = false
+	floatDrag.touch = nil
+end)
+Floating.Activated:Connect(function()
+	if floatDrag.moved or os.clock() < floatDrag.suppressUntil then
+		floatDrag.moved = false
+		return
+	end
+	Floating.Visible = false
+	Panel.Visible = true
+end)
+MiniBtn.Activated:Connect(function()
+	Panel.Visible = false
+	Floating.Visible = true
+end)
+
+local chams = {}
+local lastScan = 0
+local function refreshESP(dt)
+	if not S.espOn then
+		for uid, obj in pairs(chams) do
+			pcall(function() obj.P:Destroy() end)
+			pcall(function() obj.H:Destroy() end)
+			pcall(function() obj.B:Destroy() end)
+			chams[uid] = nil
+		end
+		return
+	end
+	lastScan = lastScan + dt
+	local doScan = lastScan > 0.3
+	if doScan then lastScan = 0 end
+	local hrp = getHRP()
+	local eggs = findAllEggs()
+	local seen = {}
+	for _, e in ipairs(eggs) do
+		seen[e.uid] = true
+		if doScan then
+			if not chams[e.uid] then
+				local p = Instance.new("Part")
+				p.Name = "EggESP"
+				p.Size = Vector3.new(3, 3, 3)
+				p.Transparency = 1
+				p.Anchored = true
+				p.CanCollide = false
+				p.Parent = workspace
+				local h = Instance.new("Highlight")
+				h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				h.FillTransparency = 0.6
+				h.FillColor = Color3.fromRGB(255, 170, 0)
+				h.OutlineColor = Color3.fromRGB(255, 170, 0)
+				h.Parent = p
+				local b = Instance.new("BillboardGui")
+				b.AlwaysOnTop = true
+				b.Size = UDim2.fromOffset(120, 40)
+				b.StudsOffset = Vector3.new(0, 3, 0)
+				b.Parent = p
+				local lab = Instance.new("TextLabel")
+				lab.Size = UDim2.fromScale(1, 1)
+				lab.BackgroundTransparency = 1
+				lab.Font = Enum.Font.Code
+				lab.TextColor3 = Color3.fromRGB(255, 220, 100)
+				lab.TextStrokeTransparency = 0
+				lab.Parent = b
+				chams[e.uid] = { P = p, H = h, B = b, L = lab }
+			end
+		end
+		local obj = chams[e.uid]
+		if obj then
+			obj.P.CFrame = CFrame.new(e.pos + Vector3.new(0, 2, 0))
+			local txt = ""
+			if S.showNames then txt = e.name end
+			if S.showDist and hrp then
+				local d = (hrp.Position - e.pos).Magnitude
+				txt = txt .. (txt ~= "" and "\n" or "") .. string.format("[%.0f]", d)
+			end
+			obj.L.Text = txt
+		end
+	end
+	if doScan then
+		for uid, obj in pairs(chams) do
+			if not seen[uid] then
+				pcall(function() obj.P:Destroy() end)
+				pcall(function() obj.H:Destroy() end)
+				pcall(function() obj.B:Destroy() end)
+				chams[uid] = nil
+			end
+		end
+	end
+end
+
+local mainConn = RunService.RenderStepped:Connect(function(dt)
+	stealLoop(dt)
+	hatchLoop(dt)
+	collectLoop(dt)
+	refreshESP(dt)
+end)
+
+local function Shutdown()
+	S.stealOn = false
+	S.speedOn = false
+	S.espOn = false
+	stopMove()
+	if moveConn then pcall(function() moveConn:Disconnect() end) end
+	if mainConn then pcall(function() mainConn:Disconnect() end) end
+	for uid, obj in pairs(chams) do
+		pcall(function() obj.P:Destroy() end)
+		chams[uid] = nil
+	end
+	pcall(function()
+		if MainGui and MainGui.Parent then MainGui:Destroy() end
+	end)
+	Notify("偷一个蛋", "已关闭")
+end
+CloseBtn.Activated:Connect(Shutdown)
+
+loadCfg()
+RenderCategory("移动")
+if navButtons[1] then
+	navButtons[1].BackgroundTransparency = 0.68
+	navButtons[1].TextColor3 = Color3.fromRGB(190, 235, 255)
+end
+
+task.wait(0.2)
+applyBypass()
+if S.speedOn then startTpwalk() end
+Notify("偷一个蛋", "天休制作 · 加载成功")
+
+            ]=====]
+        }
     },
     ["竞技格斗"] = {
         {
